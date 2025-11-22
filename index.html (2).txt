@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Mini-IA Transformer — Transforme ton texte</title>
+  <meta name="description" content="Tape un texte, choisis un style (pirate, médiéval, robot...) et regarde la transformation en direct !" />
+  <style>
+    /* --- Reset & base --- */
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;font-family:Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      background: radial-gradient(1200px 600px at 10% 10%, rgba(255,255,255,0.04), transparent),
+                  linear-gradient(135deg,#0f172a 0%, #001219 100%);
+      color:#e6eef8;
+      -webkit-font-smoothing:antialiased;display:flex;align-items:center;justify-content:center;padding:32px;
+    }
+
+    /* --- Card --- */
+    .card{width:100%;max-width:980px;background:linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.015));border-radius:16px;padding:22px;border:1px solid rgba(255,255,255,0.04);box-shadow:0 10px 30px rgba(2,6,23,0.6)}
+    h1{margin:0 0 6px 0;font-size:20px;letter-spacing:-0.3px}
+    p.lead{margin:0 0 18px 0;color:#bcd3ff;opacity:0.9}
+
+    /* --- Controls --- */
+    .grid{display:grid;grid-template-columns:1fr 360px;gap:18px}
+    @media (max-width:900px){.grid{grid-template-columns:1fr}}
+
+    textarea{width:100%;min-height:180px;padding:14px;border-radius:12px;border:1px solid rgba(255,255,255,0.04);background:linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.005));color:inherit;resize:vertical;font-size:15px}
+
+    .controls{display:flex;gap:8px;align-items:center;margin-top:10px}
+    select,button{padding:10px 12px;border-radius:10px;border:0;background:rgba(255,255,255,0.04);color:inherit;font-weight:600;cursor:pointer}
+    button.primary{background:linear-gradient(90deg,#6ea8fe,#8b5cf6);color:#081222}
+    .small{font-size:13px;padding:8px 10px}
+
+    /* --- Output --- */
+    .panel{padding:14px;border-radius:12px;border:1px dashed rgba(255,255,255,0.03);background:linear-gradient(180deg, rgba(255,255,255,0.008), rgba(255,255,255,0.002));min-height:160px;white-space:pre-wrap}
+    .meta{font-size:13px;color:#9fb0ff;margin-bottom:8px}
+
+    /* --- Fancy header --- */
+    .header-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+    .logo{display:flex;align-items:center;gap:10px}
+    .badge{background:linear-gradient(90deg,#ffb86b,#ff6b8b);padding:6px 10px;border-radius:999px;font-weight:700;color:#081222}
+
+    /* --- Footer / extras --- */
+    .row{display:flex;gap:8px;flex-wrap:wrap}
+    .small-muted{font-size:13px;color:#9fb0ff;opacity:0.8}
+
+    /* --- sample presets --- */
+    .presets{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+    .chip{padding:8px 10px;border-radius:999px;background:rgba(255,255,255,0.02);cursor:pointer;border:1px solid rgba(255,255,255,0.02)}
+
+    /* --- typing animation effect for output --- */
+    .typing{display:inline-block;overflow:hidden;border-right:2px solid rgba(255,255,255,0.12);white-space:pre-wrap}
+
+    /* link style */
+    a{color:#9fb0ff;text-decoration:none}
+
+  </style>
+</head>
+<body>
+  <div class="card" role="main">
+    <div class="header-row">
+      <div class="logo">
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="6" fill="#101827" stroke="#2b3446"/><path d="M7 15c1.5-3 5-3 6-6 1-2 3-3 5-2" stroke="#8b5cf6" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div>
+          <h1>Mini-IA Transformer</h1>
+          <div class="small-muted">Tape un texte → choisis un style → clique sur « Transformer »</div>
+        </div>
+      </div>
+      <div class="badge">Demo publique</div>
+    </div>
+
+    <p class="lead">Un petit simulateur d'IA qui transforme ton texte en styles funs et spectaculaires — sans serveur. Copie-colle, partage, épate tes potes.</p>
+
+    <div class="grid">
+      <div>
+        <label for="input">Ton texte</label>
+        <textarea id="input" placeholder="Écris quelque chose... (ex : Bonjour, je m'appelle Alice et j'adore les jeux vidéo)">Bonjour tout le monde ! Je participe à un super projet informatique.</textarea>
+
+        <div class="controls">
+          <select id="styleSelect" aria-label="Choisir un style">
+            <option value="robot">Robot futuriste</option>
+            <option value="pirate">Pirate farouche</option>
+            <option value="medieval">Médiéval / Bard</option>
+            <option value="poet">Poète dramatique</option>
+            <option value="troll">Troll comique</option>
+            <option value="comedic">Comique moderne</option>
+            <option value="shakespeare">Old English / Shakespeare-ish</option>
+          </select>
+          <button id="transformBtn" class="primary">Transformer</button>
+          <button id="surprise" class="small">Surprise</button>
+        </div>
+
+        <div class="presets" aria-hidden>
+          <div class="chip" data-sample="Salut ! J'aime coder des projets qui impressionnent le public.">Exemple : intro</div>
+          <div class="chip" data-sample="Il était une fois, un codeur qui rêvait de créer des mondes.">Exemple : conte</div>
+          <div class="chip" data-sample="Hey team, la réunion est à 14h — ne soyez pas en retard !">Exemple : message</div>
+        </div>
+
+        <div style="margin-top:10px" class="small-muted">Astuce : combine les styles pour créer des versions encore plus folles (par ex. "robot + poète").</div>
+      </div>
+
+      <div>
+        <div class="meta">Résultat (<span id="styleName">Robot futuriste</span>)</div>
+        <div id="output" class="panel" aria-live="polite">Appuie sur « Transformer » pour voir le résultat...</div>
+
+        <div style="display:flex;gap:8px;margin-top:12px;align-items:center">
+          <button id="copyBtn" class="small">Copier</button>
+          <button id="downloadBtn" class="small">Télécharger .txt</button>
+          <button id="shareBtn" class="small">Partager (URL)</button>
+          <div style="flex:1"></div>
+          <div class="small-muted">Fait localement — pas d'envoi sur un serveur.</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:16px;display:flex;justify-content:space-between;align-items:center;gap:10px">
+      <div class="small-muted">Fais-le sur GitHub Pages pour que tout le monde puisse y accéder.</div>
+      <div class="row">
+        <button id="clearBtn" class="small">Tout effacer</button>
+        <a href="#about" id="aboutBtn" class="small">À propos</a>
+      </div>
+    </div>
+
+    <details id="about" style="margin-top:12px;color:#bcd3ff;background:rgba(255,255,255,0.01);padding:12px;border-radius:10px;border:1px solid rgba(255,255,255,0.02)">
+      <summary style="cursor:pointer">Comment ça marche (court)</summary>
+      <div style="margin-top:8px;line-height:1.45">
+        Ce site contient plusieurs fonctions JavaScript qui transforment le texte en remplaçant des mots, en ajoutant des tournures, en variant la ponctuation et le rythme. C'est un simulateur d'IA — ça sonne "intelligent", et ça fait effet, mais tout est exécuté localement dans ton navigateur (pas de connexion externe).
+        <ul>
+          <li>Personnalise les styles dans le code si tu veux rendre l'IA plus puissante.</li>
+          <li>Tu peux ajouter des dictionnaires de synonymes pour enrichir les sorties.</li>
+        </ul>
+      </div>
+    </details>
+  </div>
+
+  <script>
+    // --- Utilitaires ---
+    const el = (id)=>document.getElementById(id);
+    const input = el('input');
+    const output = el('output');
+    const styleSelect = el('styleSelect');
+    const styleName = el('styleName');
+
+    // --- Small lexical resources ---
+    const synonyms = {
+      joy: ['joie','allégresse','bonheur','fièvre de joie','jubilation'],
+      like: ['aime','kiffe','adore','apprécie'],
+      hello: ['salutations','salut','coucou','bonjour','hé ho'],
+      friends: ['compagnons','alliés','camarades','potes']
+    };
+
+    const pirateWords = {hello:'avast', yes:'aye', no:'nay', friend:'matey', money:'booty', ship:'vaisseau'};
+
+    // --- Transformations ---
+    function randomFrom(arr){return arr[Math.floor(Math.random()*arr.length)]}
+
+    function robotify(text){
+      // add staccato, brackets, and techno words
+      let t = text.replace(/\bje\b/ig,'UNIT-42');
+      t = t.replace(/\bbonjour\b/ig,'<SYS_OK>');
+      t = t.replace(/\b(\w{1,5})\b/g,(m)=>Math.random()<0.08?m.toUpperCase():m);
+      t = t.replace(/[\.\!\?]+$/,'');
+      t = t.split(' ').map(w=>Math.random()<0.06?w+'::1010':''+w).join(' ');
+      t += ' \n<end-of-transmission>';
+      return t;
+    }
+
+    function pirate(text){
+      let t = text.toLowerCase();
+      t = t.replace(/\bbonjour\b/g,'ahoy');
+      t = t.replace(/\bes\b/g,'be');
+      t = t.replace(/\bje\b/g,'I');
+      t = t.replace(/\bmon\b/g,'me');
+      t = t.replace(/\bma\b/g,'me');
+      t = t.replace(/\btoi\b/g,'ye');
+      t = t.replace(/\bet\b/g,', arrr,');
+      t = t.replace(/\bami\b/g,'matey');
+      t = t.replace(/\b(suis|être)\b/g,'be');
+      t = t.replace(/\bnon\b/g,'nay');
+      // add pirate flair
+      const phrases = ['Avast!', 'Yo-ho-ho!', 'Par le grand mât!','Arrr!'];
+      return phrases[Math.floor(Math.random()*phrases.length)] + ' ' + t.replace(/(^\w)/,c=>c.toUpperCase()) + ' \n— Capitaine Code';
+    }
+
+    function medieval(text){
+      let t = text;
+      t = t.replace(/\bbonjour\b/ig,'Salutations');
+      t = t.replace(/\bje\b/ig,'je');
+      t = t.replace(/\btu\b/ig,'thou');
+      t = t.replace(/\bnous\b/ig,'we');
+      t = t.replace(/\bami\b/ig,'compagnon');
+      // add a flourish
+      return 'Ô noble lecteur, ' + t.replace(/\.$/,'') + ' — ainsi soit-il.';
+    }
+
+    function poet(text){
+      // very simple poetizer: break lines, add metaphors
+      const lines = text.split(/[\.\!\?]+\s*/).filter(Boolean);
+      const metaphors = ['comme une étoile oubliée','tel un navire sans ancre','dans le souffle du matin','à l'orée des songes'];
+      let out = lines.map((ln,i)=>ln.trim()).map((ln,i)=>ln + '\n' + (i%2===0?('\t'+randomFrom(metaphors)):'')).join('\n\n');
+      out = out.replace(/\bje\b/ig,'moi');
+      return out + '\n\n— Un poète numérique';
+    }
+
+    function troll(text){
+      // insert silly memes, misspellings, reactions
+      let t = text;
+      t = t.replace(/\bbonjour\b/ig,'yo');
+      t = t.replace(/\bêtre\b/ig,'etre');
+      t = t.replace(/\baime\b/ig,'AIMe');
+      t = t.split(' ').map(w=>Math.random()<0.12?w.toLowerCase()+"~":w).join(' ');
+      t += ' \n( ͡° ͜ʖ ͡°)';
+      return t;
+    }
+
+    function comedic(text){
+      let t = text;
+      t = t.replace(/\bje\b/ig,'moi-même');
+      t = t.replace(/\btrès\b/ig,'tellement');
+      t = t.replace(/\bbien\b/ig,'super');
+      t = t.replace(/\b(\w+)\b/g,(m)=> Math.random()<0.06?m+' 😂':m);
+      return t + ' \n(Pssst... j'ai rajouté des emojis)';
+    }
+
+    function shakespeare(text){
+      let t = text;
+      t = t.replace(/\bhello\b/ig,'Hail');
+      t = t.replace(/\byou\b/ig,'thou');
+      t = t.replace(/\bare\b/ig,'art');
+      t = t.replace(/\bmy\b/ig,'mine');
+      t = 'Hark! ' + t + '\n— Thine humble bot, in iambs';
+      return t.replace(/\b(\w+)\b/g,(m)=> Math.random()<0.05?m+'eth':m);
+    }
+
+    function applyStyle(style, text){
+      if(!text || text.trim().length===0) return '— (aucun texte fourni)';
+      switch(style){
+        case 'robot': return robotify(text);
+        case 'pirate': return pirate(text);
+        case 'medieval': return medieval(text);
+        case 'poet': return poet(text);
+        case 'troll': return troll(text);
+        case 'comedic': return comedic(text);
+        case 'shakespeare': return shakespeare(text);
+        default: return text;
+      }
+    }
+
+    // --- Fancy typed output ---
+    function typeOut(targetEl, text, speed=12){
+      targetEl.textContent = '';
+      let i=0;
+      const timer = setInterval(()=>{
+        targetEl.textContent += text.charAt(i);
+        i++;
+        if(i>=text.length){ clearInterval(timer); targetEl.classList.remove('typing'); }
+      }, speed);
+      targetEl.classList.add('typing');
+    }
+
+    // --- UI wiring ---
+    el('transformBtn').addEventListener('click', ()=>{
+      const raw = input.value;
+      const style = styleSelect.value;
+      styleName.textContent = styleSelect.options[styleSelect.selectedIndex].text;
+      const transformed = applyStyle(style, raw);
+      typeOut(output, transformed, 8);
+    });
+
+    el('surprise').addEventListener('click', ()=>{
+      // choose random style + random sample
+      const opts = Array.from(styleSelect.options).map(o=>o.value);
+      styleSelect.value = randomFrom(opts);
+      const samples = [
+        'Aujourd\'hui j\'ai appris quelque chose de fou en informatique.',
+        'La nuit, le code murmure et s\'assemble en magie.',
+        'On se retrouve à la fête du labo, prends ton PC !'
+      ];
+      input.value = randomFrom(samples);
+      el('transformBtn').click();
+    });
+
+    document.querySelectorAll('.chip').forEach(c=>c.addEventListener('click',()=>{ input.value=c.dataset.sample }));
+
+    el('copyBtn').addEventListener('click', async ()=>{
+      try{
+        await navigator.clipboard.writeText(output.textContent);
+        el('copyBtn').textContent = 'Copié !';
+        setTimeout(()=>el('copyBtn').textContent='Copier',1200);
+      }catch(e){
+        alert('Impossible de copier — autorisation refusée.');
+      }
+    });
+
+    el('downloadBtn').addEventListener('click', ()=>{
+      const blob = new Blob([output.textContent],{type:'text/plain;charset=utf-8'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'transformation.txt'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    });
+
+    el('shareBtn').addEventListener('click', ()=>{
+      // Create a short share URL via URL params (client-only)
+      const params = new URLSearchParams();
+      params.set('text', input.value);
+      params.set('style', styleSelect.value);
+      const link = location.origin + location.pathname + '?' + params.toString();
+      prompt('Copie ce lien pour partager (client-side) :', link);
+    });
+
+    el('clearBtn').addEventListener('click', ()=>{ input.value=''; output.textContent=''; styleSelect.value='robot'; styleName.textContent = styleSelect.options[styleSelect.selectedIndex].text });
+
+    // --- Load from URL params (share feature) ---
+    (function loadFromParams(){
+      const p = new URLSearchParams(location.search);
+      const t = p.get('text');
+      const s = p.get('style');
+      if(t){ input.value = t }
+      if(s){ styleSelect.value = s; styleName.textContent = styleSelect.options[styleSelect.selectedIndex].text }
+      if(t||s) { /* auto-generate a preview */ setTimeout(()=>el('transformBtn').click(),350) }
+    })();
+
+    // Accessibility: allow Ctrl+Enter to transform
+    input.addEventListener('keydown', (e)=>{ if(e.key === 'Enter' && (e.ctrlKey||e.metaKey)){ el('transformBtn').click(); } });
+
+  </script>
+</body>
+</html>
